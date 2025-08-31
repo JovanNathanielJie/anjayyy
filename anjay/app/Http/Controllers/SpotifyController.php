@@ -13,28 +13,59 @@ class SpotifyController extends Controller
 
     public function showTop3()
     {
-        // Ambil token dari Spotify
+        // Ambil token Spotify
         $tokenRes = Http::asForm()->post('https://accounts.spotify.com/api/token', [
             'grant_type' => 'client_credentials',
             'client_id' => $this->clientId,
             'client_secret' => $this->clientSecret
         ]);
 
-        $accessToken = $tokenRes->json()['access_token'];
+        $accessToken = $tokenRes->json()['access_token'] ?? null;
 
-        // Ambil semua lagu dari playlist
-        $playlistRes = Http::withHeaders([
-            'Authorization' => "Bearer $accessToken"
-        ])->get("https://api.spotify.com/v1/playlists/{$this->playlistId}/tracks");
+        $tracks = [];
 
-        $tracks = $playlistRes->json()['items'];
+        if($accessToken) {
+            $playlistRes = Http::withHeaders([
+                'Authorization' => "Bearer $accessToken"
+            ])->get("https://api.spotify.com/v1/playlists/{$this->playlistId}/tracks");
 
-        // Acak lagu
+            dd($playlistRes->json());
+            $tracks = $playlistRes->json()['items'] ?? [];
+        }
+
+        // fallback manual jika API gagal
+        if(empty($tracks)) {
+            $tracks = [
+                [
+                    'track' => [
+                        'name' => 'Hari Bersamanya',
+                        'artists' => [['name' => 'Sheila On 7']],
+                        'album' => ['images' => [['url' => 'https://i.scdn.co/image/ab67616d0000b273e8d4f0596d66ccbe5241918d']]],
+                        'external_urls' => ['spotify' => 'https://open.spotify.com/track/1ylY6UrF7cmOZ9GDOxrfk8']
+                    ]
+                ],
+                [
+                    'track' => [
+                        'name' => 'Dan',
+                        'artists' => [['name' => 'Sheila On 7']],
+                        'album' => ['images' => [['url' => 'https://i.scdn.co/image/ab67616d0000b273e8d4f0596d66ccbe5241918d']]],
+                        'external_urls' => ['spotify' => 'https://open.spotify.com/track/1nfOP7xNHeFSPOlziXswJc']
+                    ]
+                ],
+                [
+                    'track' => [
+                        'name' => 'Sephia',
+                        'artists' => [['name' => 'Sheila On 7']],
+                        'album' => ['images' => [['url' => 'https://i.scdn.co/image/ab67616d0000b273e8d4f0596d66ccbe5241918d']]],
+                        'external_urls' => ['spotify' => 'https://open.spotify.com/track/0TJ6RtLG8a1zXAmz4sh9mU']
+                    ]
+                ],
+            ];
+        }
+
         shuffle($tracks);
-
-        // Ambil 3 lagu pertama
         $top3 = array_slice($tracks, 0, 3);
 
-        return view('dashboard.spotify_top3', ['tracks' => $top3]);
+        return view('dashboard.index', ['tracks' => $top3]);
     }
 }
