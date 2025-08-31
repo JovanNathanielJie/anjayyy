@@ -24,13 +24,16 @@
 
         {{-- Header Playlist --}}
         <div class="text-center mb-5">
+            @if(session('user_name'))
+                <h2>Halo, {{ session('user_name') }} 💙</h2>
+            @endif
+
             @if (isset($playlist['images'][0]['url']))
                 <img src="{{ $playlist['images'][0]['url'] }}" width="200" class="rounded mb-3">
             @endif
+
             <h1>{{ $playlist['name'] }}</h1>
             <p class="text-muted">{{ $playlist['description'] ?? '' }}</p>
-            {{-- <p>Total Tracks: {{ data_get($playlist, 'tracks.total', 0) }}
-                | Unique Artists: {{ $uniqueArtists}}</ p> --}}
         </div>
 
         {{-- List Tracks --}}

@@ -17,7 +17,10 @@ class AuthController extends Controller
         $dob  = $request->input('birthdate');
 
         if ($name === 'ella' && $dob === '2008-05-14') {
-            // redirect ke dashboard
+            session([
+            'user_name' => 'Ella',
+            'user_birthdate' => $dob,
+            ]);
             return redirect()->route('dashboard.index');
         }
 
