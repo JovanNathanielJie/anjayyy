@@ -9,6 +9,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+
 // Login POST
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
