@@ -36,39 +36,52 @@ class SpotifyController extends Controller
      */
     public function dashboard(Request $request)
     {
-        $playlistId = '37i9dQZF1DXcBWIGoYBM5M'; // Ganti dengan playlistmu
         $accessToken = $this->getAccessToken();
+        $playlistId = '38QnPhHZa2umQm45xPTo1H'; // ganti dengan ID milikmu
 
-        $response = Http::withToken($accessToken)
-            ->get("https://api.spotify.com/v1/playlists/$playlistId");
-
-        $playlist = $response->json();
-
-        $tracks = collect($playlist['tracks']['items'])->map(function ($item) {
-            return [
-                'name'   => $item['track']['name'],
-                'artist' => $item['track']['artists'][0]['name'],
-                'url'    => $item['track']['external_urls']['spotify'],
-                'cover'  => $item['track']['album']['images'][1]['url'] ?? null,
-            ];
-        });
-
-        $totalTracks = $tracks->count();
-        $uniqueArtists = $tracks->pluck('artist')->unique()->count();
-
-        // Pagination 10 lagu per halaman
-        $perPage = 10;
-        $currentPage = LengthAwarePaginator::resolveCurrentPage();
-        $currentItems = $tracks->slice(($currentPage - 1) * $perPage, $perPage)->all();
-
-        $paginatedTracks = new LengthAwarePaginator(
-            $currentItems,
-            $tracks->count(),
-            $perPage,
-            $currentPage,
-            ['path' => $request->url()]
+        // 1) Ambil metadata playlist (judul, gambar, link, total track)
+        $playlistRes = Http::withToken($accessToken)->get(
+            "https://api.spotify.com/v1/playlists/{$playlistId}",
+            ['fields' => 'name,external_urls,images,tracks.total']
         );
 
-        return view('dashboard', compact('playlist', 'paginatedTracks', 'totalTracks', 'uniqueArtists'));
+        if ($playlistRes->failed()) {
+            return view('dashboard', ['playlist' => null, 'tracks' => []]);
+        }
+
+        $playlist = $playlistRes->json();
+        $total = data_get($playlist, 'tracks.total', 0);
+
+        // 2) Ambil sebuah "jendela" hingga 100 lagu mulai dari offset acak,
+        // supaya sampling acak tetap menyebar meski playlist >100 lagu
+        $window = min(100, $total ?: 100);
+        $start  = ($total > $window) ? random_int(0, $total - $window) : 0;
+
+        $tracksRes = Http::withToken($accessToken)->get(
+            "https://api.spotify.com/v1/playlists/{$playlistId}/tracks",
+            [
+                'limit'  => $window,
+                'offset' => $start,
+                'fields' => 'items(track(name,external_urls,artists(name),album(images)))'
+            ]
+        );
+
+        $items = data_get($tracksRes->json(), 'items', []);
+        // Filter entri null/unavailable
+        $items = array_values(array_filter($items, fn($i) => !empty($i['track'])));
+
+        // 3) Pilih 3 lagu acak
+        if (count($items) > 3) {
+            $keys = (array) array_rand($items, 3);
+            $randomTracks = array_map(fn($k) => $items[$k], $keys);
+        } else {
+            $randomTracks = $items;
+        }
+
+        return view('dashboard', [
+            'playlist' => $playlist,     // metadata (judul, gambar, link)
+            'tracks'   => $randomTracks, // 3 lagu acak
+            // 'totalTracks'  => $total,
+        ]);
     }
 }
