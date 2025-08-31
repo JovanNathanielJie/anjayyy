@@ -4,68 +4,71 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class SpotifyController extends Controller
 {
-    private $clientId = '11dda9b0b23147ccbae9a6a38a60222c';
-    private $clientSecret = 'd6b066c43b384a3e82f9e9353c7eba27';
-    private $playlistId = '38QnPhHZa2umQm45xPTo1H';
-
-    public function showTop3()
+    /**
+     * Ambil access token Spotify (Client Credentials Flow)
+     */
+    private function getAccessToken()
     {
-        // Ambil token Spotify
-        $tokenRes = Http::asForm()->post('https://accounts.spotify.com/api/token', [
-            'grant_type' => 'client_credentials',
-            'client_id' => $this->clientId,
-            'client_secret' => $this->clientSecret
-        ]);
+        return cache()->remember('spotify_token', 3600, function () {
+            $response = Http::asForm()->post('https://accounts.spotify.com/api/token', [
+                'grant_type' => 'client_credentials',
+                'client_id' => env('SPOTIFY_CLIENT_ID'),
+                'client_secret' => env('SPOTIFY_CLIENT_SECRET'),
+            ]);
 
-        $accessToken = $tokenRes->json()['access_token'] ?? null;
+            $data = $response->json();
 
-        $tracks = [];
+            // Pastikan token berhasil didapat
+            if (!isset($data['access_token'])) {
+                throw new \Exception('Gagal mendapatkan access token Spotify: ' . json_encode($data));
+            }
 
-        if($accessToken) {
-            $playlistRes = Http::withHeaders([
-                'Authorization' => "Bearer $accessToken"
-            ])->get("https://api.spotify.com/v1/playlists/{$this->playlistId}/tracks");
+            return $data['access_token'];
+        });
+    }
 
-            dd($playlistRes->json());
-            $tracks = $playlistRes->json()['items'] ?? [];
-        }
+    /**
+     * Tampilkan dashboard playlist Spotify
+     */
+    public function dashboard(Request $request)
+    {
+        $playlistId = '37i9dQZF1DXcBWIGoYBM5M'; // Ganti dengan playlistmu
+        $accessToken = $this->getAccessToken();
 
-        // fallback manual jika API gagal
-        if(empty($tracks)) {
-            $tracks = [
-                [
-                    'track' => [
-                        'name' => 'Hari Bersamanya',
-                        'artists' => [['name' => 'Sheila On 7']],
-                        'album' => ['images' => [['url' => 'https://i.scdn.co/image/ab67616d0000b273e8d4f0596d66ccbe5241918d']]],
-                        'external_urls' => ['spotify' => 'https://open.spotify.com/track/1ylY6UrF7cmOZ9GDOxrfk8']
-                    ]
-                ],
-                [
-                    'track' => [
-                        'name' => 'Dan',
-                        'artists' => [['name' => 'Sheila On 7']],
-                        'album' => ['images' => [['url' => 'https://i.scdn.co/image/ab67616d0000b273e8d4f0596d66ccbe5241918d']]],
-                        'external_urls' => ['spotify' => 'https://open.spotify.com/track/1nfOP7xNHeFSPOlziXswJc']
-                    ]
-                ],
-                [
-                    'track' => [
-                        'name' => 'Sephia',
-                        'artists' => [['name' => 'Sheila On 7']],
-                        'album' => ['images' => [['url' => 'https://i.scdn.co/image/ab67616d0000b273e8d4f0596d66ccbe5241918d']]],
-                        'external_urls' => ['spotify' => 'https://open.spotify.com/track/0TJ6RtLG8a1zXAmz4sh9mU']
-                    ]
-                ],
+        $response = Http::withToken($accessToken)
+            ->get("https://api.spotify.com/v1/playlists/$playlistId");
+
+        $playlist = $response->json();
+
+        $tracks = collect($playlist['tracks']['items'])->map(function ($item) {
+            return [
+                'name'   => $item['track']['name'],
+                'artist' => $item['track']['artists'][0]['name'],
+                'url'    => $item['track']['external_urls']['spotify'],
+                'cover'  => $item['track']['album']['images'][1]['url'] ?? null,
             ];
-        }
+        });
 
-        shuffle($tracks);
-        $top3 = array_slice($tracks, 0, 3);
+        $totalTracks = $tracks->count();
+        $uniqueArtists = $tracks->pluck('artist')->unique()->count();
 
-        return view('dashboard.index', ['tracks' => $top3]);
+        // Pagination 10 lagu per halaman
+        $perPage = 10;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $currentItems = $tracks->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+        $paginatedTracks = new LengthAwarePaginator(
+            $currentItems,
+            $tracks->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url()]
+        );
+
+        return view('dashboard', compact('playlist', 'paginatedTracks', 'totalTracks', 'uniqueArtists'));
     }
 }

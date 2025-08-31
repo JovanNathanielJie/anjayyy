@@ -12,5 +12,6 @@ Route::get('/', function () {
 // Login POST
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
-// Dashboard Spotify Top 3
-Route::get('/dashboard', [SpotifyController::class, 'showTop3'])->name('dashboard.index');
+Route::get('/playlist', [SpotifyController::class, 'playlist']);
+Route::get('/dashboard', [SpotifyController::class, 'dashboard']);
+
