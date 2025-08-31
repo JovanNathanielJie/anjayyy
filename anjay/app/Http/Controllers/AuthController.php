@@ -10,23 +10,30 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string',
-            'dob'  => 'required|date',
+            'birthdate' => 'required|date', // sesuai form kamu
         ]);
 
-        // Nama biar tidak case sensitive
         $name = strtolower($request->input('name'));
-        $dob  = $request->input('dob');
+        $dob  = $request->input('birthdate');
 
+        // Cek hardcode user "Ella"
         if ($name === 'ella' && $dob === '2008-05-14') {
-            return response()->json([
-                'success' => true,
-                'message' => 'Login berhasil! Halo Ella 🎉'
-            ]);
+            // Simpan session sederhana
+            $request->session()->put('user_name', 'Ella');
+
+            // Redirect ke dashboard Spotify Top 3
+            return redirect()->route('dashboard.index')
+                             ->with('success', 'Login berhasil! Halo Ella 🎉');
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Nama atau tanggal lahir salah.'
-        ]);
+        // Jika gagal
+        return back()->with('error', 'Nama atau tanggal lahir salah 😢');
+    }
+
+    // Logout sederhana
+    public function logout(Request $request)
+    {
+        $request->session()->flush();
+        return redirect('/')->with('success', 'Berhasil logout 👋');
     }
 }
