@@ -60,7 +60,7 @@
                         @endif
 
                         <!-- Form Login -->
-                        <form method="POST" action="{{ url('/login') }}">
+                        <form method="POST" action="{{ route('login') }}">
                             @csrf
                             <div class="mb-3 text-start">
                                 <label class="form-label">Nama</label>
@@ -71,9 +71,12 @@
                                 <input type="date" name="birthdate" class="form-control" required>
                             </div>
                             <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill fw-semibold">
-                                <i class="bi bi-box-arrow-in-right me-2"></i> Masuk
+                                Masuk
                             </button>
                         </form>
+                        @if(session('error'))
+                            <div class="alert alert-danger mt-3">{{ session('error') }}</div>
+                        @endif
 
                         <hr class="my-4">
                         <small class="text-muted">Website spesial penyemangat untuk orang favoritku 💙</small>

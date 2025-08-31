@@ -4,25 +4,26 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class SpotifyController extends Controller
 {
     /**
-     * Ambil access token Spotify (Client Credentials Flow)
+     * Ambil access token Spotify (Client Credentials Flow) pakai Basic Auth
      */
     private function getAccessToken()
     {
         return cache()->remember('spotify_token', 3600, function () {
-            $response = Http::asForm()->post('https://accounts.spotify.com/api/token', [
+            $clientId = env('SPOTIFY_CLIENT_ID');
+            $clientSecret = env('SPOTIFY_CLIENT_SECRET');
+
+            $response = Http::asForm()->withHeaders([
+                'Authorization' => 'Basic ' . base64_encode("$clientId:$clientSecret"),
+            ])->post('https://accounts.spotify.com/api/token', [
                 'grant_type' => 'client_credentials',
-                'client_id' => env('SPOTIFY_CLIENT_ID'),
-                'client_secret' => env('SPOTIFY_CLIENT_SECRET'),
             ]);
 
             $data = $response->json();
 
-            // Pastikan token berhasil didapat
             if (!isset($data['access_token'])) {
                 throw new \Exception('Gagal mendapatkan access token Spotify: ' . json_encode($data));
             }
@@ -36,13 +37,18 @@ class SpotifyController extends Controller
      */
     public function dashboard(Request $request)
     {
-        $accessToken = $this->getAccessToken();
-        $playlistId = '38QnPhHZa2umQm45xPTo1H'; // ganti dengan ID milikmu
+        // Pastikan user sudah login
+        if (!$request->session()->has('user_name')) {
+            return redirect('/');
+        }
 
-        // 1) Ambil metadata playlist (judul, gambar, link, total track)
+        $accessToken = $this->getAccessToken();
+        $playlistId = '38QnPhHZa2umQm45xPTo1H'; // Ganti dengan ID playlist kamu
+
+        // Ambil metadata playlist
         $playlistRes = Http::withToken($accessToken)->get(
             "https://api.spotify.com/v1/playlists/{$playlistId}",
-            ['fields' => 'name,external_urls,images,tracks.total']
+            ['fields' => 'name,external_urls,images,tracks.total,description']
         );
 
         if ($playlistRes->failed()) {
@@ -52,8 +58,7 @@ class SpotifyController extends Controller
         $playlist = $playlistRes->json();
         $total = data_get($playlist, 'tracks.total', 0);
 
-        // 2) Ambil sebuah "jendela" hingga 100 lagu mulai dari offset acak,
-        // supaya sampling acak tetap menyebar meski playlist >100 lagu
+        // Ambil window hingga 100 lagu dari playlist
         $window = min(100, $total ?: 100);
         $start  = ($total > $window) ? random_int(0, $total - $window) : 0;
 
@@ -67,10 +72,9 @@ class SpotifyController extends Controller
         );
 
         $items = data_get($tracksRes->json(), 'items', []);
-        // Filter entri null/unavailable
         $items = array_values(array_filter($items, fn($i) => !empty($i['track'])));
 
-        // 3) Pilih 3 lagu acak
+        // Ambil 3 lagu acak
         if (count($items) > 3) {
             $keys = (array) array_rand($items, 3);
             $randomTracks = array_map(fn($k) => $items[$k], $keys);
@@ -79,9 +83,8 @@ class SpotifyController extends Controller
         }
 
         return view('dashboard', [
-            'playlist' => $playlist,     // metadata (judul, gambar, link)
-            'tracks'   => $randomTracks, // 3 lagu acak
-            // 'totalTracks'  => $total,
+            'playlist' => $playlist,
+            'tracks'   => $randomTracks,
         ]);
     }
 }

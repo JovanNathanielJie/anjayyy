@@ -9,10 +9,17 @@ Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
 
-// Login POST
+// Login GET → redirect ke welcome
+Route::get('/login', function () {
+    return redirect('/');
+});
+
+// Login POST → proses login
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
-// Dashboard Spotify → beri nama route yang sesuai
-Route::get('/dashboard', [SpotifyController::class, 'dashboard'])
-    ->name('dashboard.index'); // <-- harus sama dengan redirect di AuthController
+// Logout (opsional)
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Dashboard Spotify
+Route::get('/dashboard', [SpotifyController::class, 'dashboard'])
+    ->name('dashboard.index');

@@ -23,7 +23,7 @@
     <div class="container py-5">
 
         {{-- Header Playlist --}}
-        <div class="text-center mb-5">
+                <div class="text-center mb-5">
             @if(session('user_name'))
                 <h2>Halo, {{ session('user_name') }} 💙</h2>
             @endif
