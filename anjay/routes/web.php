@@ -39,3 +39,7 @@ Route::get('/postcards/light', function () {
 Route::get('/postcards/affection', function () {
     return view('postcards.affection');
 });
+
+Route::get('/playlist', function()  {
+    return view('playlist.playlist');
+});
